@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS}
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - 3000:3000
+    networks:
+      - monitoring-net
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql
+    container_name: zabbix-web
+    restart: unless-stopped
+    environment:
+      - PHP_TZ=${PHP_TZ}
+      - DB_SERVER_HOST=${DB_SERVER_HOST}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - ZBX_SERVER_HOST=${ZBX_SERVER_HOST}
+      - ZBX_SERVER_PORT=${ZBX_SERVER_PORT}
+    ports:
+      - 8080:8080
+    networks:
+      - monitoring-net
+    depends_on:
+      - db
+      - zabbix-server
+
+  zabbix-agent:
+    image: zabbix/zabbix-agent
+    container_name: zabbix-agent
+    restart: unless-stopped
+    environment:
+      - ZBX_HOSTNAME=${ZBX_HOSTNAME}
+      - ZBX_SERVER_HOST=${ZBX_SERVER_HOST}
+    networks:
+      - monitoring-net
+    depends_on:
+      - db
+      - zabbix-server
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql
+    container_name: zabbix-server
+    restart: unless-stopped
+    environment:
+      - DB_SERVER_HOST=${DB_SERVER_HOST}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - ZBX_JAVAGATEWAY=${ZBX_JAVAGATEWAY}
+      - ZBX_MAXHOUSEKEEPERDELETE=${ZBX_MAXHOUSEKEEPERDELETE}
+      - ZBX_STARTPOLLERS=${ZBX_STARTPOLLERS}
+      - ZBX_CACHESIZE=${ZBX_CACHESIZE}
+      - ZBX_STARTDBSYNCERS=${ZBX_STARTDBSYNCERS}
+      - ZBX_HISTORYCACHESIZE=${ZBX_HISTORYCACHESIZE}
+      - ZBX_TRENDCACHESIZE=${ZBX_TRENDCACHESIZE}
+      - ZBX_VALUECACHESIZE=${ZBX_VALUECACHESIZE}
+      - ZBX_LOGSLOWQUERIES=${ZBX_LOGSLOWQUERIES}
+    ports:
+      - 10051:10051
+    networks:
+      - monitoring-net
+    depends_on:
+      - db
+
+  db:
+    image: mysql:${MYSQL_IMAGE_TAG}
+    container_name: db
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_bin", "--default-authentication-plugin=mysql_native_password", "--log_bin_trust_function_creators=1"]
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-db:/var/lib/mysql
+    ports:
+      - 3306:3306
+    networks:
+      - monitoring-net
+
+networks:
+  monitoring-net:
+
+volumes:
+  grafana-storage:
+  mysql-db:
